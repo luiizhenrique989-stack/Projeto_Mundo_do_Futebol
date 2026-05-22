@@ -1099,15 +1099,64 @@
       }
     }
 
+    // ===== DEBUG PANEL =====
+    function showDebug(data) {
+      const existing = document.getElementById('debugPanel');
+      if (existing) existing.remove();
+
+      if (!data || data.length === 0) return;
+
+      const firstRow = data[0];
+      const cols = Object.keys(firstRow);
+      const imgCols = cols.filter(c =>
+        ['imagem','image','foto','thumbnail','image_url','img','url_imagem','picture','photo','url'].includes(c.toLowerCase())
+      );
+
+      const panel = document.createElement('div');
+      panel.id = 'debugPanel';
+      panel.style.cssText = `
+        position:fixed; bottom:1rem; left:1rem; z-index:9999;
+        background:#1a1a1a; border:1px solid #00C853; border-radius:10px;
+        padding:1rem 1.2rem; max-width:420px; font-family:monospace; font-size:.78rem;
+        color:#ccc; box-shadow:0 8px 32px rgba(0,0,0,.6);
+      `;
+      panel.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem">
+          <span style="color:#00C853;font-weight:bold">🔍 DEBUG — Colunas do banco</span>
+          <button onclick="this.parentElement.parentElement.remove()"
+            style="background:transparent;border:none;color:#888;cursor:pointer;font-size:1rem">✕</button>
+        </div>
+        <div style="margin-bottom:.5rem">
+          <strong style="color:#fff">Todas as colunas (${cols.length}):</strong><br/>
+          <span style="color:#FFD600">${cols.join(', ')}</span>
+        </div>
+        <div style="margin-bottom:.5rem">
+          <strong style="color:#fff">Colunas de imagem detectadas:</strong><br/>
+          ${imgCols.length > 0
+            ? `<span style="color:#00C853">${imgCols.join(', ')}</span>`
+            : `<span style="color:#ff5555">Nenhuma coluna padrão encontrada!<br>Renomeie sua coluna para <b>imagem</b> ou <b>image_url</b></span>`
+          }
+        </div>
+        <div style="margin-bottom:.5rem">
+          <strong style="color:#fff">Valor da imagem no 1º produto:</strong><br/>
+          ${imgCols.length > 0
+            ? `<span style="color:#00C853;word-break:break-all">${firstRow[imgCols[0]] || '(vazio — coluna existe mas está NULL)'}</span>`
+            : `<span style="color:#ff5555">—</span>`
+          }
+        </div>
+        <div style="font-size:.7rem;color:#666;margin-top:.4rem">Clique ✕ para fechar</div>
+      `;
+      document.body.appendChild(panel);
+    }
+
     // ===== LOAD PRODUCTS =====
     async function loadProducts() {
       const grid = document.getElementById('productsGrid');
       try {
-        // Try common table names
-        let data = null, error = null;
+        let data = null, error = null, usedTable = '';
         for (const table of ['produtos', 'products', 'product', 'items']) {
           ({ data, error } = await db.from(table).select('*').limit(20));
-          if (!error && data && data.length > 0) break;
+          if (!error && data && data.length > 0) { usedTable = table; break; }
         }
 
         if (!data || data.length === 0) {
@@ -1120,12 +1169,29 @@
           return;
         }
 
+        // Mostrar debug para identificar colunas reais
+        showDebug(data);
+
+        // Detectar automaticamente qual coluna tem a imagem
+        const firstRow = data[0];
+        const allCols = Object.keys(firstRow);
+        const imgField = allCols.find(c =>
+          ['imagem','image','foto','thumbnail','image_url','img','url_imagem','picture','photo','url_foto'].includes(c.toLowerCase())
+        ) || '';
+
+        console.log(`✅ Tabela: "${usedTable}" | Coluna imagem detectada: "${imgField}"`);
+        console.log('Colunas disponíveis:', allCols);
+        console.log('Primeiro produto:', firstRow);
+
         grid.innerHTML = `<div class="products-grid">${data.map((p, i) => {
-          const name  = p.nome || p.name || p.title || 'Produto';
-          const price = parseFloat(p.preco || p.price || p.valor || 0);
-          const desc  = p.descricao || p.description || p.desc || '';
-          const cat   = p.categoria || p.category || '';
-          const img   = p.imagem || p.image || p.foto || p.thumbnail || p.image_url || '';
+          const name  = p.nome || p.name || p.title || p.produto || 'Produto';
+          const price = parseFloat(p.preco || p.price || p.valor || p.preco_venda || 0);
+          const desc  = p.descricao || p.description || p.desc || p.detalhes || '';
+          const cat   = p.categoria || p.category || p.tipo || '';
+          // Usar coluna detectada automaticamente, ou tentar todas
+          const img   = (imgField ? p[imgField] : null)
+                     || p.imagem || p.image || p.foto || p.thumbnail
+                     || p.image_url || p.img || p.url_imagem || p.picture || '';
           const badge = i < 3 ? 'DESTAQUE' : (i % 5 === 0 ? 'PROMOÇÃO' : '');
           const badgeSale = badge === 'PROMOÇÃO';
 
@@ -1135,7 +1201,7 @@
                 <img
                   src="${img || placeholder(name)}"
                   alt="${name}"
-                  onerror="this.src='${placeholder(name)}'"
+                  onerror="this.onerror=null;this.src='${placeholder(name)}'"
                   loading="lazy"
                 />
                 ${badge ? `<span class="product-badge${badgeSale ? ' sale' : ''}">${badge}</span>` : ''}
