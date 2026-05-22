@@ -1176,7 +1176,7 @@
         const firstRow = data[0];
         const allCols = Object.keys(firstRow);
         const imgField = allCols.find(c =>
-          ['imagem','image','foto','thumbnail','image_url','img','url_imagem','picture','photo','url_foto'].includes(c.toLowerCase())
+          ['imagem','image','foto','thumbnail','image_url','imagem_url','img','url_imagem','picture','photo','url_foto'].includes(c.toLowerCase())
         ) || '';
 
         console.log(`✅ Tabela: "${usedTable}" | Coluna imagem detectada: "${imgField}"`);
@@ -1191,7 +1191,7 @@
           // Usar coluna detectada automaticamente, ou tentar todas
           const img   = (imgField ? p[imgField] : null)
                      || p.imagem || p.image || p.foto || p.thumbnail
-                     || p.image_url || p.img || p.url_imagem || p.picture || '';
+                     || p.image_url || p.imagem_url || p.img || p.url_imagem || p.picture || '';
           const badge = i < 3 ? 'DESTAQUE' : (i % 5 === 0 ? 'PROMOÇÃO' : '');
           const badgeSale = badge === 'PROMOÇÃO';
 
